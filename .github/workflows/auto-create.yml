@@ -1,0 +1,76 @@
+name: Auto Create Flutter Project
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: 'App display name'
+        required: false
+        default: 'Flutter App'
+
+permissions:
+  contents: write
+
+jobs:
+  create_flutter:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create Flutter project if missing
+        run: |
+          if [ ! -f "pubspec.yaml" ]; then
+            PROJECT_NAME=$(basename "$GITHUB_REPOSITORY" | tr '-' '_')
+            flutter create --project-name "$PROJECT_NAME" .
+          else
+            echo "Flutter project already exists."
+          fi
+
+      - name: Set app display name
+        run: |
+          APP_NAME="${{ github.event.inputs.app_name }}"
+          if [ -z "$APP_NAME" ]; then
+            APP_NAME="Flutter App"
+          fi
+          if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+            sed -i "s/android:label=\"[^\"]*\"/android:label=\"$APP_NAME\"/" android/app/src/main/AndroidManifest.xml
+          fi
+
+      - name: Ensure INTERNET permission (release builds need it explicitly)
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST" ] && ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
+            sed -i '/<manifest/a\    <uses-permission android:name="android.permission.INTERNET"/>' "$MANIFEST"
+          fi
+
+      - name: Generate app icon if provided
+        run: |
+          if [ -f "assets/icon/icon.png" ]; then
+            flutter pub add --dev flutter_launcher_icons
+            {
+              echo 'flutter_launcher_icons:'
+              echo '  android: "launcher_icon"'
+              echo '  ios: true'
+              echo '  image_path: "assets/icon/icon.png"'
+            } >> pubspec.yaml
+            dart run flutter_launcher_icons
+          fi
+
+      - name: Commit and Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Auto create Flutter project"
+            git push
+          fi
