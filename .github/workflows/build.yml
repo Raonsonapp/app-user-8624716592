@@ -1,0 +1,41 @@
+name: Build APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Create Flutter project if missing
+        run: |
+          if [ ! -f "pubspec.yaml" ]; then
+            PROJECT_NAME=$(basename "$GITHUB_REPOSITORY" | tr '-' '_')
+            flutter create --project-name "$PROJECT_NAME" .
+          fi
+
+      - name: Ensure Feather icons dependency
+        run: flutter pub add flutter_feather_icons
+
+      - name: Ensure http dependency (for functions with real network calls)
+        run: flutter pub add http
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release
+          path: build/app/outputs/flutter-apk/*.apk
