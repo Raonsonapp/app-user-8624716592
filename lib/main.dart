@@ -124,7 +124,7 @@ class MyHomePage extends StatelessWidget {
                   ),
                   _buildFeatureCard(
                     context,
-                    icon: FeatherIcons.save,
+                    icon: FeatherIcons.download, // replaced invalid FeatherIcons.save
                     label: 'Export',
                     onTap: () => _placeholderAction(context, 'Export'),
                   ),
